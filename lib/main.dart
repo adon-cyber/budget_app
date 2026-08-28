@@ -549,30 +549,32 @@ class _AddTransactionFormState extends ConsumerState<AddTransactionForm> {
 
         if (_selectedXFile != null) {
           final supabase = Supabase.instance.client;
-          final fileExt = _selectedXFile!.path.split('.').last;
+          final fileExt = _selectedXFile!.path.split('.').last.toLowerCase();
           final fileName =
               '${DateTime.now().millisecondsSinceEpoch}_${authProvider.toString()}.$fileExt';
           final filePath = fileName;
 
-          if (kIsWeb) {
-            final bytes = await _selectedXFile!.readAsBytes();
-            await supabase.storage
-                .from('receipts')
-                .uploadBinary(
-                  filePath,
-                  bytes,
-                  fileOptions: FileOptions(contentType: 'image/$fileExt'),
-                );
-          } else {
-            final file = File(_selectedXFile!.path);
-            await supabase.storage
-                .from('receipts')
-                .upload(
-                  filePath,
-                  file,
-                  fileOptions: const FileOptions(upsert: false),
-                );
+          final bytes = await _selectedXFile!.readAsBytes();
+
+          String validContentType = 'image/jpeg';
+          if (fileExt == 'png') {
+            validContentType = 'image/png';
+          } else if (fileExt == 'jpg' || fileExt == 'jpeg') {
+            validContentType = 'image/jpeg';
+          } else if (fileExt == 'pdf') {
+            validContentType = 'application/pdf';
           }
+
+          await supabase.storage
+              .from('receipts')
+              .uploadBinary(
+                filePath,
+                bytes,
+                fileOptions: FileOptions(
+                  contentType: validContentType,
+                  upsert: true,
+                ),
+              );
 
           receiptUrl = supabase.storage.from('receipts').getPublicUrl(filePath);
         }
