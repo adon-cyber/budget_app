@@ -549,20 +549,19 @@ class _AddTransactionFormState extends ConsumerState<AddTransactionForm> {
 
         if (_selectedXFile != null) {
           final supabase = Supabase.instance.client;
-          final fileExt = _selectedXFile!.path.split('.').last.toLowerCase();
+          final fileExt = _selectedXFile!.name.split('.').last.toLowerCase();
           final fileName =
               '${DateTime.now().millisecondsSinceEpoch}_${authProvider.toString()}.$fileExt';
           final filePath = fileName;
 
           final bytes = await _selectedXFile!.readAsBytes();
 
-          String validContentType = 'image/jpeg';
-          if (fileExt == 'png') {
-            validContentType = 'image/png';
-          } else if (fileExt == 'jpg' || fileExt == 'jpeg') {
-            validContentType = 'image/jpeg';
-          } else if (fileExt == 'pdf') {
-            validContentType = 'application/pdf';
+          String contentType = 'image/jpeg';
+          if (_selectedXFile!.name.endsWith('.png') || fileExt == 'png') {
+            contentType = 'image/png';
+          } else if (_selectedXFile!.name.endsWith('.webp') ||
+              fileExt == 'webp') {
+            contentType = 'image/webp';
           }
 
           await supabase.storage
@@ -571,7 +570,7 @@ class _AddTransactionFormState extends ConsumerState<AddTransactionForm> {
                 filePath,
                 bytes,
                 fileOptions: FileOptions(
-                  contentType: validContentType,
+                  contentType: contentType,
                   upsert: true,
                 ),
               );
