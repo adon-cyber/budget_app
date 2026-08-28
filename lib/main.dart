@@ -548,34 +548,23 @@ class _AddTransactionFormState extends ConsumerState<AddTransactionForm> {
         String? receiptUrl;
 
         if (_selectedXFile != null) {
-          final supabase = Supabase.instance.client;
-          final fileExt = _selectedXFile!.name.split('.').last.toLowerCase();
-          final fileName =
-              '${DateTime.now().millisecondsSinceEpoch}_${authProvider.toString()}.$fileExt';
-          final filePath = fileName;
-
           final bytes = await _selectedXFile!.readAsBytes();
+          final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
 
-          String contentType = 'image/jpeg';
-          if (_selectedXFile!.name.endsWith('.png') || fileExt == 'png') {
-            contentType = 'image/png';
-          } else if (_selectedXFile!.name.endsWith('.webp') ||
-              fileExt == 'webp') {
-            contentType = 'image/webp';
-          }
-
-          await supabase.storage
+          await Supabase.instance.client.storage
               .from('receipts')
               .uploadBinary(
-                filePath,
+                fileName,
                 bytes,
-                fileOptions: FileOptions(
-                  contentType: contentType,
+                fileOptions: const FileOptions(
+                  contentType: 'image/jpeg',
                   upsert: true,
                 ),
               );
 
-          receiptUrl = supabase.storage.from('receipts').getPublicUrl(filePath);
+          receiptUrl = Supabase.instance.client.storage
+              .from('receipts')
+              .getPublicUrl(fileName);
         }
 
         await ref
