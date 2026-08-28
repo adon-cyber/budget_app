@@ -66,6 +66,7 @@ class TransactionNotifier extends StateNotifier<TransactionState> {
     required double amount,
     required String category,
     required String type,
+    String? receiptUrl,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -76,6 +77,7 @@ class TransactionNotifier extends StateNotifier<TransactionState> {
         'amount': amount,
         'category': category,
         'type': type,
+        'receipt_url': receiptUrl,
       };
 
       if (user != null) {

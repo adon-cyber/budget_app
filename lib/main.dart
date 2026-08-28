@@ -3,6 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'providers/transaction_provider.dart';
 import 'providers/auth_provider.dart';
@@ -468,6 +473,9 @@ class _AddTransactionFormState extends ConsumerState<AddTransactionForm> {
   final _amountController = TextEditingController();
   String _type = 'expense';
   String _category = 'Food';
+  File? _selectedImage;
+  XFile? _selectedXFile;
+  bool _isUploading = false;
 
   final List<String> _categories = [
     'Food',
@@ -486,12 +494,89 @@ class _AddTransactionFormState extends ConsumerState<AddTransactionForm> {
     super.dispose();
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: source, imageQuality: 80);
+    if (pickedFile != null) {
+      setState(() {
+        _selectedXFile = pickedFile;
+        if (!kIsWeb) {
+          _selectedImage = File(pickedFile.path);
+        }
+      });
+    }
+  }
+
+  void _showImageSourceDialog() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _pickImage(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _submitForm() async {
     if (_formKey.currentState!.validate()) {
       final title = _titleController.text.trim();
       final amount = double.parse(_amountController.text.trim());
 
+      setState(() {
+        _isUploading = true;
+      });
+
       try {
+        String? receiptUrl;
+
+        if (_selectedXFile != null) {
+          final supabase = Supabase.instance.client;
+          final fileExt = _selectedXFile!.path.split('.').last;
+          final fileName =
+              '${DateTime.now().millisecondsSinceEpoch}_${authProvider.toString()}.$fileExt';
+          final filePath = fileName;
+
+          if (kIsWeb) {
+            final bytes = await _selectedXFile!.readAsBytes();
+            await supabase.storage
+                .from('receipts')
+                .uploadBinary(
+                  filePath,
+                  bytes,
+                  fileOptions: FileOptions(contentType: 'image/$fileExt'),
+                );
+          } else {
+            final file = File(_selectedXFile!.path);
+            await supabase.storage
+                .from('receipts')
+                .upload(
+                  filePath,
+                  file,
+                  fileOptions: const FileOptions(upsert: false),
+                );
+          }
+
+          receiptUrl = supabase.storage.from('receipts').getPublicUrl(filePath);
+        }
+
         await ref
             .read(transactionProvider.notifier)
             .addTransaction(
@@ -499,6 +584,7 @@ class _AddTransactionFormState extends ConsumerState<AddTransactionForm> {
               amount: amount,
               category: _category,
               type: _type,
+              receiptUrl: receiptUrl,
             );
 
         if (mounted) {
@@ -509,6 +595,12 @@ class _AddTransactionFormState extends ConsumerState<AddTransactionForm> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Failed to add transaction: $e')),
           );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isUploading = false;
+          });
         }
       }
     }
@@ -669,6 +761,62 @@ class _AddTransactionFormState extends ConsumerState<AddTransactionForm> {
                     }
                   },
                 ),
+                const SizedBox(height: 16),
+
+                // Receipt Upload Section
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _showImageSourceDialog,
+                        icon: const Icon(Icons.receipt),
+                        label: Text(
+                          _selectedXFile == null
+                              ? 'Upload Receipt'
+                              : 'Change Receipt',
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_selectedXFile != null) ...[
+                      const SizedBox(width: 12),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          setState(() {
+                            _selectedXFile = null;
+                            _selectedImage = null;
+                          });
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+                if (_selectedXFile != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    height: 100,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: kIsWeb
+                          ? Image.network(
+                              _selectedXFile!.path,
+                              fit: BoxFit.cover,
+                            )
+                          : Image.file(_selectedImage!, fit: BoxFit.cover),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
 
                 // Submit Button
@@ -676,7 +824,9 @@ class _AddTransactionFormState extends ConsumerState<AddTransactionForm> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: transactionState.isLoading ? null : _submitForm,
+                    onPressed: (transactionState.isLoading || _isUploading)
+                        ? null
+                        : _submitForm,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.indigo,
                       foregroundColor: Colors.white,
@@ -684,7 +834,7 @@ class _AddTransactionFormState extends ConsumerState<AddTransactionForm> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: transactionState.isLoading
+                    child: (transactionState.isLoading || _isUploading)
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text(
                             'Add Transaction',
