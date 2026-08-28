@@ -7,7 +7,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'providers/transaction_provider.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth_screen.dart';
-import 'models/transaction.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,7 +17,10 @@ Future<void> main() async {
   // Initialize Supabase
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL'] ?? '',
-    anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+    publishableKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.implicit,
+    ),
   );
 
   runApp(const ProviderScope(child: MyApp()));
@@ -171,7 +173,7 @@ class BudgetHomePage extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.indigo.withOpacity(0.3),
+                            color: Colors.indigo.withValues(alpha: 0.3),
                             blurRadius: 10,
                             offset: const Offset(0, 5),
                           ),
@@ -318,7 +320,9 @@ class BudgetHomePage extends ConsumerWidget {
                                     borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.03),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.03,
+                                        ),
                                         blurRadius: 8,
                                         offset: const Offset(0, 2),
                                       ),
@@ -331,8 +335,8 @@ class BudgetHomePage extends ConsumerWidget {
                                     ),
                                     leading: CircleAvatar(
                                       backgroundColor: isIncome
-                                          ? Colors.green.withOpacity(0.1)
-                                          : Colors.red.withOpacity(0.1),
+                                          ? Colors.green.withValues(alpha: 0.1)
+                                          : Colors.red.withValues(alpha: 0.1),
                                       child: Icon(
                                         _getCategoryIcon(tx.category),
                                         color: isIncome
@@ -394,7 +398,7 @@ class BudgetHomePage extends ConsumerWidget {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: color, size: 18),
@@ -645,7 +649,7 @@ class _AddTransactionFormState extends ConsumerState<AddTransactionForm> {
 
                 // Category Dropdown
                 DropdownButtonFormField<String>(
-                  value: _category,
+                  initialValue: _category,
                   decoration: InputDecoration(
                     labelText: 'Category',
                     border: OutlineInputBorder(
