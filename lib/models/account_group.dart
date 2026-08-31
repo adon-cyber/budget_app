@@ -15,12 +15,12 @@ class AccountGroup {
 
   factory AccountGroup.fromJson(Map<String, dynamic> json) {
     return AccountGroup(
-      id: json['id'].toString(),
-      name: json['name'] as String,
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
       parentId: json['parent_id']?.toString(),
-      type: json['type'] as String,
+      type: json['type']?.toString() ?? '',
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
     );
   }
