@@ -14,6 +14,8 @@ import 'providers/auth_provider.dart';
 import 'providers/ledger_provider.dart';
 import 'providers/voucher_provider.dart';
 import 'providers/cost_center_provider.dart';
+import 'providers/bill_provider.dart';
+import 'providers/report_provider.dart';
 import 'screens/auth_screen.dart';
 import 'screens/ledger_management_screen.dart';
 import 'screens/voucher_list_screen.dart';
@@ -48,6 +50,8 @@ Future<void> main() async {
         legacy_provider.ChangeNotifierProvider(
           create: (_) => CostCenterProvider(),
         ),
+        legacy_provider.ChangeNotifierProvider(create: (_) => BillProvider()),
+        legacy_provider.ChangeNotifierProvider(create: (_) => ReportProvider()),
       ],
       child: const ProviderScope(child: MyApp()),
     ),
