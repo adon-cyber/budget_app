@@ -230,6 +230,7 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
                     flex: 2,
                     child: DropdownButtonFormField<String>(
                       initialValue: _voucherType,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Voucher Type',
                         border: OutlineInputBorder(),
@@ -505,6 +506,7 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
                             flex: 2,
                             child: DropdownButtonFormField<bool>(
                               initialValue: row.isDebit,
+                              isExpanded: true,
                               decoration: const InputDecoration(
                                 border: OutlineInputBorder(),
                                 contentPadding: EdgeInsets.symmetric(
