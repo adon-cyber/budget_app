@@ -11,7 +11,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'providers/transaction_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/ledger_provider.dart';
 import 'screens/auth_screen.dart';
+import 'screens/ledger_management_screen.dart';
+
+import 'package:provider/provider.dart' as legacy_provider;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +32,12 @@ Future<void> main() async {
     ),
   );
 
-  runApp(const ProviderScope(child: MyApp()));
+  runApp(
+    legacy_provider.ChangeNotifierProvider(
+      create: (_) => LedgerProvider(),
+      child: const ProviderScope(child: MyApp()),
+    ),
+  );
 }
 
 class MyApp extends ConsumerWidget {
@@ -114,6 +123,17 @@ class BudgetHomePage extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.account_tree),
+            tooltip: 'Chart of Accounts',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const LedgerManagementScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
