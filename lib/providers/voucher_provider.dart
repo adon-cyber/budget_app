@@ -41,7 +41,7 @@ class VoucherProvider with ChangeNotifier {
     required String voucherType,
     required DateTime date,
     String? narration,
-    required List<Map<String, dynamic>> items, // Each item: { 'ledger_id': ..., 'debit': ..., 'credit': ..., 'description': ... }
+    required List<Map<String, dynamic>> items, // Each item: { 'ledger_id': ..., 'debit': ..., 'credit': ..., 'description': ..., 'cost_center_id': ... }
   }) async {
     _isLoading = true;
     _errorMessage = null;
@@ -82,6 +82,7 @@ class VoucherProvider with ChangeNotifier {
         final debit = (item['debit'] as num).toDouble();
         final credit = (item['credit'] as num).toDouble();
         final description = item['description'] as String?;
+        final costCenterId = item['cost_center_id'] as String?;
 
         await _supabase.from('voucher_items').insert({
           'voucher_id': voucherId,
@@ -89,14 +90,10 @@ class VoucherProvider with ChangeNotifier {
           'debit': debit,
           'credit': credit,
           'description': description,
+          'cost_center_id': costCenterId,
         });
 
         // Fetch current ledger balance and account group type to properly update current_balance
-        // Note: In standard accounting,
-        // For Asset/Expense: Debit increases balance, Credit decreases balance.
-        // For Liability/Income: Credit increases balance, Debit decreases balance.
-        // Alternatively, if current_balance is stored as net debit or signed value, or we look at account group type.
-        // Let's fetch the ledger's group type via account_groups join.
         final ledgerData = await _supabase
             .from('ledgers')
             .select('*, account_groups(type)')
@@ -105,13 +102,8 @@ class VoucherProvider with ChangeNotifier {
 
         final currentBalance = (ledgerData['current_balance'] as num)
             .toDouble();
-        final groupType =
-            ledgerData['account_groups']['type']
-                as String; // 'asset', 'liability', 'income', 'expense'
+        final groupType = ledgerData['account_groups']['type'] as String;
 
-        // Determine net change effect:
-        // Assets & Expenses normally have Debit balances. Debit increases, Credit decreases.
-        // Liabilities & Income normally have Credit balances. Credit increases, Debit decreases.
         double netChange = 0;
         if (groupType == 'asset' || groupType == 'expense') {
           netChange = debit - credit;

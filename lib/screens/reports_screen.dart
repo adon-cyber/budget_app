@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/ledger_provider.dart';
-import '../models/account_group.dart';
+import '../providers/report_provider.dart';
+import '../models/report_balance.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -14,18 +14,13 @@ class ReportsScreen extends StatefulWidget {
 class _ReportsScreenState extends State<ReportsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  DateTime _fromDate = DateTime(DateTime.now().year, 1, 1);
-  DateTime _toDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<LedgerProvider>(
-        context,
-        listen: false,
-      ).fetchChartOfAccounts();
+      Provider.of<ReportProvider>(context, listen: false).fetchReportBalances();
     });
   }
 
@@ -35,249 +30,147 @@ class _ReportsScreenState extends State<ReportsScreen>
     super.dispose();
   }
 
-  Future<void> _selectDateRange(BuildContext context) async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-      initialDateRange: DateTimeRange(start: _fromDate, end: _toDate),
-    );
-    if (picked != null) {
-      setState(() {
-        _fromDate = picked.start;
-        _toDate = picked.end;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final reportProvider = Provider.of<ReportProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Financial Statements'),
+        title: const Text('Financial Reports'),
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
             Tab(text: 'Trial Balance'),
             Tab(text: 'Profit & Loss'),
+            Tab(text: 'Balance Sheet'),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.date_range),
-            onPressed: () => _selectDateRange(context),
-            tooltip: 'Select Date Range',
+            icon: const Icon(Icons.refresh),
+            onPressed: () => reportProvider.fetchReportBalances(),
           ),
         ],
       ),
-      body: Consumer<LedgerProvider>(
-        builder: (context, ledgerProvider, child) {
-          if (ledgerProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (ledgerProvider.errorMessage != null) {
-            return Center(
-              child: Text(
-                'Error: ${ledgerProvider.errorMessage}',
-                style: const TextStyle(color: Colors.red),
+      body: reportProvider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : reportProvider.errorMessage != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'Error: ${reportProvider.errorMessage}',
+                  style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
               ),
-            );
-          }
-
-          return TabBarView(
-            controller: _tabController,
-            children: [
-              _buildTrialBalance(ledgerProvider),
-              _buildProfitAndLoss(ledgerProvider),
-            ],
-          );
-        },
-      ),
+            )
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildTrialBalanceTab(reportProvider.reportBalances),
+                _buildProfitLossTab(reportProvider),
+                _buildBalanceSheetTab(reportProvider),
+              ],
+            ),
     );
   }
 
-  Widget _buildTrialBalance(LedgerProvider provider) {
-    final groups = provider.accountGroups;
-    final ledgers = provider.ledgers;
+  Widget _buildTrialBalanceTab(List<ReportBalance> balances) {
+    double totalDebit = 0.0;
+    double totalCredit = 0.0;
 
-    // Map group id to group object
-    final groupMap = {for (var g in groups) g.id: g};
+    final rows = balances.map((item) {
+      final nature = item.nature.toLowerCase();
+      final isDebitNature = nature == 'asset' || nature == 'expense';
 
-    // Aggregate Debit and Credit by Primary Group (or group type/name)
-    // In Tally, Trial Balance groups by Account Groups (Assets, Liabilities, Capital, Loans, etc.)
-    Map<String, double> groupBalances = {};
+      double debitVal = 0.0;
+      double creditVal = 0.0;
 
-    for (var ledger in ledgers) {
-      final group = groupMap[ledger.groupId];
-      final groupName = group?.name ?? 'Primary / Unknown';
-
-      groupBalances.update(
-        groupName,
-        (value) => value + ledger.currentBalance,
-        ifAbsent: () => ledger.currentBalance,
-      );
-    }
-
-    double totalDebit = 0;
-    double totalCredit = 0;
-
-    List<Widget> rows = groupBalances.entries.map((entry) {
-      final groupName = entry.key;
-      final balance = entry.value;
-
-      // Find group type to determine if it sits on Debit or Credit side standardly,
-      // or simply show debit if positive, credit if negative, or based on group type.
-      // Assets & Expenses usually normal Debit balance. Liabilities, Capital & Incomes usually normal Credit balance.
-      final group = groups.firstWhere(
-        (g) => g.name == groupName,
-        orElse: () => AccountGroup(
-          id: '',
-          name: '',
-          type: 'asset',
-          createdAt: DateTime.now(),
-        ),
-      );
-
-      double debit = 0;
-      double credit = 0;
-
-      if (group.type == 'asset' || group.type == 'expense') {
-        if (balance >= 0) {
-          debit = balance;
-          totalDebit += debit;
-        } else {
-          credit = balance.abs();
-          totalCredit += credit;
-        }
+      if (isDebitNature) {
+        debitVal = item.currentBalance;
+        totalDebit += debitVal;
       } else {
-        if (balance >= 0) {
-          credit = balance;
-          totalCredit += credit;
-        } else {
-          debit = balance.abs();
-          totalDebit += debit;
-        }
+        creditVal = item.currentBalance;
+        totalCredit += creditVal;
       }
 
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Text(
-                groupName,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
+      return DataRow(
+        cells: [
+          DataCell(Text(item.ledgerName)),
+          DataCell(Text(item.groupName)),
+          DataCell(
+            Text(
+              isDebitVal(debitVal) ? '\$${debitVal.toStringAsFixed(2)}' : '-',
             ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                debit > 0 ? debit.toStringAsFixed(2) : '-',
-                textAlign: TextAlign.right,
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                credit > 0 ? credit.toStringAsFixed(2) : '-',
-                textAlign: TextAlign.right,
-              ),
-            ),
-          ],
-        ),
+          ),
+          DataCell(
+            Text(creditVal > 0 ? '\$${creditVal.toStringAsFixed(2)}' : '-'),
+          ),
+        ],
       );
     }).toList();
 
+    // To ensure bottom totals match for trial balance in accounting demo if there's a diff or if totals should match
+    // Standard trial balance debits and credits should naturally equal.
+
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Text(
-            'Trial Balance as of ${_toDate.toLocal().toString().split(' ')[0]}',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        ),
-        Container(
-          color: Colors.grey[200],
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-          child: const Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: Text(
-                  'Particulars (Group)',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Debit',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Credit',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-        ),
         Expanded(
-          child: ListView(
-            children: rows.isNotEmpty
-                ? rows
-                : const [
-                    Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: Text('No ledger data available.'),
-                      ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columns: const [
+                  DataColumn(
+                    label: Text(
+                      'Ledger Name',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                  ],
+                  ),
+                  DataColumn(
+                    label: Text(
+                      'Group',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Text(
+                      'Debit',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Text(
+                      'Credit',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+                rows: rows,
+              ),
+            ),
           ),
         ),
         Container(
           padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            border: Border(top: BorderSide(color: Colors.grey.shade300)),
-          ),
+          color: Colors.grey.shade200,
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              const Expanded(
-                flex: 3,
-                child: Text(
-                  'Total',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Text(
+                'Total Debit: \$${totalDebit.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
               ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  totalDebit.toStringAsFixed(2),
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  totalCredit.toStringAsFixed(2),
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
+              Text(
+                'Total Credit: \$${totalCredit.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
               ),
             ],
@@ -287,182 +180,334 @@ class _ReportsScreenState extends State<ReportsScreen>
     );
   }
 
-  Widget _buildProfitAndLoss(LedgerProvider provider) {
-    final groups = provider.accountGroups;
-    final ledgers = provider.ledgers;
+  bool isDebitVal(double val) => val > 0;
 
-    final groupMap = {for (var g in groups) g.id: g};
+  Widget _buildProfitLossTab(ReportProvider provider) {
+    final expenses = provider.reportBalances
+        .where((item) => item.nature.toLowerCase() == 'expense')
+        .toList();
+    final incomes = provider.reportBalances
+        .where((item) => item.nature.toLowerCase() == 'income')
+        .toList();
 
-    double totalIncome = 0;
-    double totalExpense = 0;
+    final netProfit = provider.netProfit;
+    final isNetProfit = netProfit >= 0;
 
-    List<Widget> incomeWidgets = [];
-    List<Widget> expenseWidgets = [];
-
-    for (var ledger in ledgers) {
-      final group = groupMap[ledger.groupId];
-      if (group == null) continue;
-
-      if (group.type == 'income') {
-        totalIncome += ledger.currentBalance.abs();
-        incomeWidgets.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 4.0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(ledger.name),
-                Text(ledger.currentBalance.abs().toStringAsFixed(2)),
-              ],
-            ),
-          ),
-        );
-      } else if (group.type == 'expense') {
-        totalExpense += ledger.currentBalance.abs();
-        expenseWidgets.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 4.0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(ledger.name),
-                Text(ledger.currentBalance.abs().toStringAsFixed(2)),
-              ],
-            ),
-          ),
-        );
-      }
-    }
-
-    double netProfitOrLoss = totalIncome - totalExpense;
-
-    return ListView(
+    return Padding(
       padding: const EdgeInsets.all(16.0),
-      children: [
-        Center(
-          child: Text(
-            'Profit & Loss Statement\nFrom ${_fromDate.toLocal().toString().split(' ')[0]} To ${_toDate.toLocal().toString().split(' ')[0]}',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          'Income',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.green,
-          ),
-        ),
-        const Divider(),
-        ...incomeWidgets.isNotEmpty
-            ? incomeWidgets
-            : [
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('No income recorded.'),
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Expenses Card (Left)
+                Expanded(
+                  child: Card(
+                    elevation: 3,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Expenses',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red,
+                            ),
+                          ),
+                          const Divider(),
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: expenses.length,
+                              itemBuilder: (context, index) {
+                                final exp = expenses[index];
+                                return ListTile(
+                                  dense: true,
+                                  title: Text(exp.ledgerName),
+                                  trailing: Text(
+                                    '\$${exp.currentBalance.toStringAsFixed(2)}',
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const Divider(),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Total Expenses:',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                '\$${provider.totalExpenses.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Incomes Card (Right)
+                Expanded(
+                  child: Card(
+                    elevation: 3,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Income',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                          const Divider(),
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: incomes.length,
+                              itemBuilder: (context, index) {
+                                final inc = incomes[index];
+                                return ListTile(
+                                  dense: true,
+                                  title: Text(inc.ledgerName),
+                                  trailing: Text(
+                                    '\$${inc.currentBalance.toStringAsFixed(2)}',
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const Divider(),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Total Income:',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                '\$${provider.totalIncome.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ],
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Total Income',
-              style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            Text(
-              totalIncome.toStringAsFixed(2),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: isNetProfit ? Colors.green.shade50 : Colors.red.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isNetProfit ? Colors.green : Colors.red,
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 30),
-        const Text(
-          'Expenses',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.red,
-          ),
-        ),
-        const Divider(),
-        ...expenseWidgets.isNotEmpty
-            ? expenseWidgets
-            : [
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('No expenses recorded.'),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  isNetProfit ? 'Net Profit: ' : 'Net Loss: ',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isNetProfit
+                        ? Colors.green.shade800
+                        : Colors.red.shade800,
+                  ),
+                ),
+                Text(
+                  '\$${netProfit.abs().toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isNetProfit
+                        ? Colors.green.shade800
+                        : Colors.red.shade800,
+                  ),
                 ),
               ],
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Total Expenses',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(
-              totalExpense.toStringAsFixed(2),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-              ),
-            ),
-          ],
-        ),
-        const Divider(thickness: 2, height: 40),
-        Container(
-          padding: const EdgeInsets.all(12.0),
-          decoration: BoxDecoration(
-            color: netProfitOrLoss >= 0
-                ? Colors.green.shade50
-                : Colors.red.shade50,
-            borderRadius: BorderRadius.circular(8.0),
-            border: Border.all(
-              color: netProfitOrLoss >= 0
-                  ? Colors.green.shade200
-                  : Colors.red.shade200,
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                netProfitOrLoss >= 0 ? 'Net Profit' : 'Net Loss',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: netProfitOrLoss >= 0
-                      ? Colors.green.shade800
-                      : Colors.red.shade800,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBalanceSheetTab(ReportProvider provider) {
+    final liabilities = provider.reportBalances
+        .where((item) => item.nature.toLowerCase() == 'liability')
+        .toList();
+    final assets = provider.reportBalances
+        .where((item) => item.nature.toLowerCase() == 'asset')
+        .toList();
+
+    final netProfit = provider.netProfit;
+    final totalLiabilities = provider.totalLiabilities + netProfit;
+    final totalAssets = provider.totalAssets;
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Liabilities & Equity (Left)
+          Expanded(
+            child: Card(
+              elevation: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Liabilities & Equity',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                    const Divider(),
+                    Expanded(
+                      child: ListView(
+                        children: [
+                          ...liabilities.map(
+                            (liab) => ListTile(
+                              dense: true,
+                              title: Text(liab.ledgerName),
+                              trailing: Text(
+                                '\$${liab.currentBalance.toStringAsFixed(2)}',
+                              ),
+                            ),
+                          ),
+                          ListTile(
+                            dense: true,
+                            title: const Text(
+                              'Net Profit / (Loss)',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            trailing: Text(
+                              '\$${netProfit.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: netProfit >= 0
+                                    ? Colors.green
+                                    : Colors.red,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Total:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          '\$${totalLiabilities.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                netProfitOrLoss.abs().toStringAsFixed(2),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: netProfitOrLoss >= 0
-                      ? Colors.green.shade800
-                      : Colors.red.shade800,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 12),
+          // Assets (Right)
+          Expanded(
+            child: Card(
+              elevation: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Assets',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                    const Divider(),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: assets.length,
+                        itemBuilder: (context, index) {
+                          final asset = assets[index];
+                          return ListTile(
+                            dense: true,
+                            title: Text(asset.ledgerName),
+                            trailing: Text(
+                              '\$${asset.currentBalance.toStringAsFixed(2)}',
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const Divider(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Total:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          '\$${totalAssets.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

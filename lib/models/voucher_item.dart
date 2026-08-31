@@ -5,6 +5,7 @@ class VoucherItem {
   final double debit;
   final double credit;
   final String? description;
+  final String? costCenterId;
 
   VoucherItem({
     required this.id,
@@ -13,6 +14,7 @@ class VoucherItem {
     required this.debit,
     required this.credit,
     this.description,
+    this.costCenterId,
   });
 
   factory VoucherItem.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,7 @@ class VoucherItem {
       debit: (json['debit'] as num).toDouble(),
       credit: (json['credit'] as num).toDouble(),
       description: json['description'] as String?,
+      costCenterId: json['cost_center_id']?.toString(),
     );
   }
 
@@ -32,6 +35,7 @@ class VoucherItem {
       'debit': debit,
       'credit': credit,
       'description': description,
+      'cost_center_id': costCenterId,
     };
   }
 }

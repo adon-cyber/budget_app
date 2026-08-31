@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/bill.dart';
+import '../models/cost_center.dart';
 import '../models/ledger.dart';
+import '../providers/bill_provider.dart';
+import '../providers/cost_center_provider.dart';
 import '../providers/ledger_provider.dart';
 import '../providers/voucher_provider.dart';
 
@@ -19,15 +23,22 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
   final _narrationController = TextEditingController();
   DateTime _date = DateTime.now();
 
-  // List of entry rows: each row has ledgerId, isDebit (true = Debit, false = Credit), amount, description
+  // List of entry rows: each row has ledgerId, costCenterId, isDebit, amount, description, selectedBillId
   final List<_VoucherRowItem> _rows = [_VoucherRowItem(), _VoucherRowItem()];
 
   @override
   void initState() {
     super.initState();
-    // Generate default voucher number
     _voucherNumberController.text =
         'V-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<CostCenterProvider>(
+        context,
+        listen: false,
+      ).fetchCostCenters();
+      Provider.of<BillProvider>(context, listen: false).fetchBills();
+    });
   }
 
   @override
@@ -120,6 +131,7 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
         'description': row.descController.text.trim().isEmpty
             ? null
             : row.descController.text.trim(),
+        'cost_center_id': row.costCenterId,
       });
     }
 
@@ -127,6 +139,8 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
       context,
       listen: false,
     );
+    final billProvider = Provider.of<BillProvider>(context, listen: false);
+
     final success = await voucherProvider.postVoucher(
       voucherNumber: _voucherNumberController.text.trim(),
       voucherType: _voucherType,
@@ -140,11 +154,23 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
     if (!mounted) return;
 
     if (success) {
+      // Update cleared amounts for any selected bills
+      for (var row in _rows) {
+        if (row.selectedBillId != null) {
+          final amt = double.tryParse(row.amountController.text) ?? 0.0;
+          await billProvider.updateClearedAmount(
+            billId: row.selectedBillId!,
+            additionalClearedAmount: amt,
+          );
+        }
+      }
+
+      if (!mounted) return;
       Navigator.of(context).pop(true);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Voucher posted successfully! Ledger balances updated.',
+            'Voucher posted successfully! Ledger balances & bills updated.',
           ),
         ),
       );
@@ -165,10 +191,16 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
     final ledgerProvider = Provider.of<LedgerProvider>(context);
     final ledgers = ledgerProvider.ledgers;
 
+    final costCenterProvider = Provider.of<CostCenterProvider>(context);
+    final costCenters = costCenterProvider.costCenters;
+
+    final billProvider = Provider.of<BillProvider>(context);
+    final allBills = billProvider.bills;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.85,
+        width: MediaQuery.of(context).size.width * 0.95,
         height: MediaQuery.of(context).size.height * 0.9,
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -192,7 +224,6 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
               ),
               const Divider(),
               const SizedBox(height: 12),
-              // Voucher Type and Number Row
               Row(
                 children: [
                   Expanded(
@@ -279,7 +310,6 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              // Table header
               Container(
                 padding: const EdgeInsets.symmetric(
                   vertical: 8,
@@ -298,6 +328,20 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
                     Expanded(
                       flex: 2,
                       child: Text(
+                        'Cost Center',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        'Outstanding Bill (Opt)',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
                         'Type (Dr / Cr)',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
@@ -310,7 +354,7 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
                       ),
                     ),
                     Expanded(
-                      flex: 3,
+                      flex: 2,
                       child: Text(
                         'Description',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -320,13 +364,19 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
                   ],
                 ),
               ),
-              // Rows list
               Expanded(
                 child: ListView.builder(
                   shrinkWrap: true,
                   itemCount: _rows.length,
                   itemBuilder: (context, index) {
                     final row = _rows[index];
+                    // Filter bills for selected ledger if ledger is chosen
+                    final ledgerBills = allBills.where((b) {
+                      return row.ledgerId != null &&
+                          b.ledgerId == row.ledgerId &&
+                          b.pendingAmount > 0;
+                    }).toList();
+
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Row(
@@ -354,9 +404,100 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
                                   ),
                                 );
                               }).toList(),
-                              onChanged: (val) =>
-                                  setState(() => row.ledgerId = val),
+                              onChanged: (val) {
+                                setState(() {
+                                  row.ledgerId = val;
+                                  row.selectedBillId =
+                                      null; // reset bill if ledger changes
+                                });
+                              },
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Cost Center Dropdown
+                          Expanded(
+                            flex: 2,
+                            child: DropdownButtonFormField<String?>(
+                              initialValue: row.costCenterId,
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                              ),
+                              hint: const Text('None'),
+                              items: [
+                                const DropdownMenuItem<String?>(
+                                  value: null,
+                                  child: Text('None'),
+                                ),
+                                ...costCenters.map((CostCenter cc) {
+                                  return DropdownMenuItem<String?>(
+                                    value: cc.id,
+                                    child: Text(
+                                      cc.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                }),
+                              ],
+                              onChanged: (val) =>
+                                  setState(() => row.costCenterId = val),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Outstanding Bill Dropdown (Only for Payment/Receipt when ledger is selected)
+                          Expanded(
+                            flex: 2,
+                            child:
+                                (_voucherType == 'Payment' ||
+                                    _voucherType == 'Receipt')
+                                ? DropdownButtonFormField<String?>(
+                                    initialValue: row.selectedBillId,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                    hint: const Text('No Bill'),
+                                    items: [
+                                      const DropdownMenuItem<String?>(
+                                        value: null,
+                                        child: Text('No Bill'),
+                                      ),
+                                      ...ledgerBills.map((Bill bill) {
+                                        return DropdownMenuItem<String?>(
+                                          value: bill.id,
+                                          child: Text(
+                                            '${bill.referenceNo} (\$${bill.pendingAmount.toStringAsFixed(2)})',
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                    onChanged: (val) {
+                                      setState(() {
+                                        row.selectedBillId = val;
+                                        if (val != null) {
+                                          final bill = ledgerBills.firstWhere(
+                                            (b) => b.id == val,
+                                          );
+                                          row.amountController.text = bill
+                                              .pendingAmount
+                                              .toStringAsFixed(2);
+                                        }
+                                      });
+                                    },
+                                  )
+                                : const SizedBox.shrink(),
                           ),
                           const SizedBox(width: 8),
                           // Dr / Cr Selector
@@ -425,7 +566,7 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
                           const SizedBox(width: 8),
                           // Description
                           Expanded(
-                            flex: 3,
+                            flex: 2,
                             child: TextFormField(
                               controller: row.descController,
                               decoration: const InputDecoration(
@@ -434,7 +575,7 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
                                   horizontal: 10,
                                   vertical: 8,
                                 ),
-                                hintText: 'Optional item memo',
+                                hintText: 'Optional memo',
                               ),
                             ),
                           ),
@@ -459,7 +600,6 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
                 ),
               ),
               const Divider(),
-              // Totals and validation banner
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -533,6 +673,8 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
 
 class _VoucherRowItem {
   String? ledgerId;
+  String? costCenterId;
+  String? selectedBillId;
   bool isDebit = true;
   final TextEditingController amountController = TextEditingController();
   final TextEditingController descController = TextEditingController();
