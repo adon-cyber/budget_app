@@ -12,8 +12,10 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'providers/transaction_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/ledger_provider.dart';
+import 'providers/voucher_provider.dart';
 import 'screens/auth_screen.dart';
 import 'screens/ledger_management_screen.dart';
+import 'screens/voucher_list_screen.dart';
 
 import 'package:provider/provider.dart' as legacy_provider;
 
@@ -33,8 +35,13 @@ Future<void> main() async {
   );
 
   runApp(
-    legacy_provider.ChangeNotifierProvider(
-      create: (_) => LedgerProvider(),
+    legacy_provider.MultiProvider(
+      providers: [
+        legacy_provider.ChangeNotifierProvider(create: (_) => LedgerProvider()),
+        legacy_provider.ChangeNotifierProvider(
+          create: (_) => VoucherProvider(),
+        ),
+      ],
       child: const ProviderScope(child: MyApp()),
     ),
   );
@@ -130,6 +137,17 @@ class BudgetHomePage extends ConsumerWidget {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => const LedgerManagementScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            tooltip: 'Vouchers',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const VoucherListScreen(),
                 ),
               );
             },
