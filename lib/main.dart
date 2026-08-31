@@ -18,6 +18,8 @@ import 'screens/auth_screen.dart';
 import 'screens/ledger_management_screen.dart';
 import 'screens/voucher_list_screen.dart';
 import 'screens/cost_center_screen.dart';
+import 'screens/reports_screen.dart';
+import 'screens/aging_report_screen.dart';
 
 import 'package:provider/provider.dart' as legacy_provider;
 
@@ -169,6 +171,26 @@ class BudgetHomePage extends ConsumerWidget {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.bar_chart),
+            tooltip: 'Reports',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const ReportsScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.hourglass_bottom),
+            tooltip: 'Aging Report',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const AgingReportScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
               ref.read(transactionProvider.notifier).fetchTransactions();
@@ -283,6 +305,89 @@ class BudgetHomePage extends ConsumerWidget {
                           ),
                         ],
                       ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Quick Module Navigation Section
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Quick Modules',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    GridView.count(
+                      crossAxisCount: 3,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 1.1,
+                      children: [
+                        _buildModuleCard(
+                          context,
+                          'Vouchers',
+                          Icons.receipt_long,
+                          Colors.blue,
+                          () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const VoucherListScreen(),
+                            ),
+                          ),
+                        ),
+                        _buildModuleCard(
+                          context,
+                          'Reports',
+                          Icons.bar_chart,
+                          Colors.purple,
+                          () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const ReportsScreen(),
+                            ),
+                          ),
+                        ),
+                        _buildModuleCard(
+                          context,
+                          'Aging Report',
+                          Icons.hourglass_bottom,
+                          Colors.orange,
+                          () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const AgingReportScreen(),
+                            ),
+                          ),
+                        ),
+                        _buildModuleCard(
+                          context,
+                          'Cost Centers',
+                          Icons.business_center,
+                          Colors.teal,
+                          () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const CostCenterScreen(),
+                            ),
+                          ),
+                        ),
+                        _buildModuleCard(
+                          context,
+                          'Ledgers',
+                          Icons.account_tree,
+                          Colors.indigo,
+                          () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const LedgerManagementScreen(),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 24),
 
@@ -507,6 +612,59 @@ class BudgetHomePage extends ConsumerWidget {
       default:
         return Icons.category;
     }
+  }
+
+  Widget _buildModuleCard(
+    BuildContext context,
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _formatDate(DateTime date) {
