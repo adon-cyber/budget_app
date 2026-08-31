@@ -63,14 +63,13 @@ class LedgerProvider with ChangeNotifier {
 
       final newLedger = Ledger.fromJson(response);
       _ledgers.add(newLedger);
-      _isLoading = false;
-      notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = e.toString();
+      return false;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
     }
   }
 }

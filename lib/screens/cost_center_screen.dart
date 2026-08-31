@@ -108,61 +108,116 @@ class _CostCenterScreenState extends State<CostCenterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final costCenterProvider = Provider.of<CostCenterProvider>(context);
-    final costCenters = costCenterProvider.costCenters;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cost Centers'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => costCenterProvider.fetchCostCenters(),
+            onPressed: () => Provider.of<CostCenterProvider>(
+              context,
+              listen: false,
+            ).fetchCostCenters(),
           ),
         ],
       ),
-      body: costCenterProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : costCenters.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('No cost centers found.'),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () => _showAddCostCenterDialog(context),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Cost Center'),
-                  ),
-                ],
+      body: Consumer<CostCenterProvider>(
+        builder: (context, costCenterProvider, child) {
+          final costCenters = costCenterProvider.costCenters;
+
+          if (costCenterProvider.isLoading && costCenters.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (costCenterProvider.errorMessage != null && costCenters.isEmpty) {
+            return Center(
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Error: ${costCenterProvider.errorMessage}',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: costCenters.length,
-              itemBuilder: (context, index) {
-                final cc = costCenters[index];
-                return Card(
-                  elevation: 2,
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.business_center),
+            );
+          }
+
+          return Stack(
+            children: [
+              costCenters.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('No cost centers found.'),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: () => _showAddCostCenterDialog(context),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add Cost Center'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: costCenters.length,
+                      itemBuilder: (context, index) {
+                        final cc = costCenters[index];
+                        return Card(
+                          elevation: 2,
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          child: ListTile(
+                            leading: const CircleAvatar(
+                              child: Icon(Icons.business_center),
+                            ),
+                            title: Text(
+                              cc.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Text(
+                              cc.description ?? 'No description provided',
+                            ),
+                            trailing: Text(
+                              'Created: ${cc.createdAt.toLocal().toString().split(' ')[0]}',
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    title: Text(
-                      cc.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(cc.description ?? 'No description provided'),
-                    trailing: Text(
-                      'Created: ${cc.createdAt.toLocal().toString().split(' ')[0]}',
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                  ),
-                );
-              },
-            ),
+              if (costCenterProvider.isLoading)
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: LinearProgressIndicator(),
+                ),
+            ],
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddCostCenterDialog(context),
         child: const Icon(Icons.add),

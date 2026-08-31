@@ -79,14 +79,13 @@ class BillProvider with ChangeNotifier {
 
       final newBill = Bill.fromJson(response);
       _bills.add(newBill);
-      _isLoading = false;
-      notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = e.toString();
+      return false;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
     }
   }
 
@@ -94,6 +93,10 @@ class BillProvider with ChangeNotifier {
     required String billId,
     required double additionalClearedAmount,
   }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
       // Find current bill
       final billIndex = _bills.indexWhere((b) => b.id == billId);
@@ -110,12 +113,13 @@ class BillProvider with ChangeNotifier {
           .single();
 
       _bills[billIndex] = Bill.fromJson(response);
-      notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = e.toString();
-      notifyListeners();
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 }

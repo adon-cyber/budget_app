@@ -49,14 +49,13 @@ class CostCenterProvider with ChangeNotifier {
 
       final newCostCenter = CostCenter.fromJson(response);
       _costCenters.add(newCostCenter);
-      _isLoading = false;
-      notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = e.toString();
+      return false;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
     }
   }
 }

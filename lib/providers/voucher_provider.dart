@@ -14,6 +14,21 @@ class VoucherProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  // Callback references for cross-provider synchronization
+  Future<void> Function()? _fetchLedgersCallback;
+  Future<void> Function()? _fetchBillsCallback;
+  Future<void> Function()? _fetchReportsCallback;
+
+  void setCallbacks({
+    Future<void> Function()? fetchLedgers,
+    Future<void> Function()? fetchBills,
+    Future<void> Function()? fetchReports,
+  }) {
+    if (fetchLedgers != null) _fetchLedgersCallback = fetchLedgers;
+    if (fetchBills != null) _fetchBillsCallback = fetchBills;
+    if (fetchReports != null) _fetchReportsCallback = fetchReports;
+  }
+
   Future<void> fetchVouchers() async {
     _isLoading = true;
     _errorMessage = null;
@@ -36,7 +51,7 @@ class VoucherProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> postVoucher({
+  Future<bool> createVoucher({
     required String voucherNumber,
     required String voucherType,
     required DateTime date,
@@ -119,15 +134,43 @@ class VoucherProvider with ChangeNotifier {
             .eq('id', ledgerId);
       }
 
+      // 4. Fetch vouchers and trigger cross-provider sync callbacks
       await fetchVouchers();
-      _isLoading = false;
-      notifyListeners();
+
+      if (_fetchLedgersCallback != null) {
+        await _fetchLedgersCallback!();
+      }
+      if (_fetchBillsCallback != null) {
+        await _fetchBillsCallback!();
+      }
+      if (_fetchReportsCallback != null) {
+        await _fetchReportsCallback!();
+      }
+
       return true;
     } catch (e) {
       _errorMessage = e.toString();
+      return false;
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return false;
     }
+  }
+
+  // Alias for backward compatibility if needed, or point to createVoucher
+  Future<bool> postVoucher({
+    required String voucherNumber,
+    required String voucherType,
+    required DateTime date,
+    String? narration,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    return createVoucher(
+      voucherNumber: voucherNumber,
+      voucherType: voucherType,
+      date: date,
+      narration: narration,
+      items: items,
+    );
   }
 }

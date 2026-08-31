@@ -140,8 +140,6 @@ class _AgingReportScreenState extends State<AgingReportScreen>
 
   @override
   Widget build(BuildContext context) {
-    final billProvider = Provider.of<BillProvider>(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bill-Wise Aging Report'),
@@ -155,19 +153,69 @@ class _AgingReportScreenState extends State<AgingReportScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => billProvider.fetchAgingAnalysis(),
+            onPressed: () => Provider.of<BillProvider>(
+              context,
+              listen: false,
+            ).fetchAgingAnalysis(),
           ),
         ],
       ),
-      body: billProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildBillList(billProvider.agingBills, 'receivable'),
-                _buildBillList(billProvider.agingBills, 'payable'),
-              ],
-            ),
+      body: Consumer<BillProvider>(
+        builder: (context, billProvider, child) {
+          if (billProvider.isLoading && billProvider.agingBills.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (billProvider.errorMessage != null &&
+              billProvider.agingBills.isEmpty) {
+            return Center(
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Error: ${billProvider.errorMessage}',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return Stack(
+            children: [
+              TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildBillList(billProvider.agingBills, 'receivable'),
+                  _buildBillList(billProvider.agingBills, 'payable'),
+                ],
+              ),
+              if (billProvider.isLoading)
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: LinearProgressIndicator(),
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

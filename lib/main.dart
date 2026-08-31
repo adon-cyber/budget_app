@@ -90,8 +90,24 @@ class MyApp extends ConsumerWidget {
   }
 }
 
-class BudgetHomePage extends ConsumerWidget {
+class BudgetHomePage extends ConsumerStatefulWidget {
   const BudgetHomePage({super.key});
+
+  @override
+  ConsumerState<BudgetHomePage> createState() => _BudgetHomePageState();
+}
+
+class _BudgetHomePageState extends ConsumerState<BudgetHomePage> {
+  int _currentIndex = 0;
+
+  final List<Widget> _screens = const [
+    DashboardTab(),
+    LedgerManagementScreen(),
+    VoucherListScreen(),
+    CostCenterScreen(),
+    AgingReportScreen(),
+    ReportsScreen(),
+  ];
 
   void _showAddTransactionModal(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
@@ -114,6 +130,183 @@ class BudgetHomePage extends ConsumerWidget {
   }
 
   @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        title: Text(
+          _getTitle(_currentIndex),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+        ),
+        centerTitle: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              ref.read(transactionProvider.notifier).fetchTransactions();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Logout',
+            onPressed: () async {
+              await Supabase.instance.client.auth.signOut();
+            },
+          ),
+        ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            UserAccountsDrawerHeader(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.indigo, Colors.indigoAccent],
+                ),
+              ),
+              accountName: const Text('Budget & Accounting App'),
+              accountEmail: Text(
+                Supabase.instance.client.auth.currentUser?.email ?? '',
+              ),
+              currentAccountPicture: const CircleAvatar(
+                backgroundColor: Colors.white,
+                child: Icon(
+                  Icons.account_balance_wallet,
+                  color: Colors.indigo,
+                  size: 32,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard),
+              title: const Text('Dashboard'),
+              selected: _currentIndex == 0,
+              onTap: () {
+                setState(() => _currentIndex = 0);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.account_tree),
+              title: const Text('Ledgers'),
+              selected: _currentIndex == 1,
+              onTap: () {
+                setState(() => _currentIndex = 1);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt_long),
+              title: const Text('Vouchers'),
+              selected: _currentIndex == 2,
+              onTap: () {
+                setState(() => _currentIndex = 2);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.business_center),
+              title: const Text('Cost Centers'),
+              selected: _currentIndex == 3,
+              onTap: () {
+                setState(() => _currentIndex = 3);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.hourglass_bottom),
+              title: const Text('Aging Analysis'),
+              selected: _currentIndex == 4,
+              onTap: () {
+                setState(() => _currentIndex = 4);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart),
+              title: const Text('Financial Reports'),
+              selected: _currentIndex == 5,
+              onTap: () {
+                setState(() => _currentIndex = 5);
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout', style: TextStyle(color: Colors.red)),
+              onTap: () async {
+                Navigator.pop(context);
+                await Supabase.instance.client.auth.signOut();
+              },
+            ),
+          ],
+        ),
+      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex > 3 ? 0 : _currentIndex,
+        onTap: (index) {
+          setState(() => _currentIndex = index);
+        },
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: Colors.indigo,
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_tree),
+            label: 'Ledgers',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: 'Vouchers',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.business_center),
+            label: 'Cost Centers',
+          ),
+        ],
+      ),
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton.extended(
+              onPressed: () => _showAddTransactionModal(context, ref),
+              label: const Text('Add Transaction'),
+              icon: const Icon(Icons.add),
+              backgroundColor: Colors.indigo,
+              foregroundColor: Colors.white,
+            )
+          : null,
+    );
+  }
+
+  String _getTitle(int index) {
+    switch (index) {
+      case 0:
+        return 'Dashboard';
+      case 1:
+        return 'Ledgers (Chart of Accounts)';
+      case 2:
+        return 'Vouchers';
+      case 3:
+        return 'Cost Centers';
+      case 4:
+        return 'Aging Analysis';
+      case 5:
+        return 'Financial Reports';
+      default:
+        return 'Budget App';
+    }
+  }
+}
+
+class DashboardTab extends ConsumerWidget {
+  const DashboardTab({super.key});
+
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
     final transactionState = ref.watch(transactionProvider);
     final transactions = transactionState.transactions;
@@ -130,427 +323,235 @@ class BudgetHomePage extends ConsumerWidget {
     }
     double totalBalance = totalIncome - totalExpense;
 
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        title: const Text(
-          'Dashboard',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
-        ),
-        centerTitle: false,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.account_tree),
-            tooltip: 'Chart of Accounts',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const LedgerManagementScreen(),
+    if (transactionState.isLoading && transactions.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await ref.read(transactionProvider.notifier).fetchTransactions();
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (transactionState.error != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.shade200),
                 ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.receipt_long),
-            tooltip: 'Vouchers',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const VoucherListScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.business_center),
-            tooltip: 'Cost Centers',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const CostCenterScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.bar_chart),
-            tooltip: 'Reports',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const ReportsScreen()),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.hourglass_bottom),
-            tooltip: 'Aging Report',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const AgingReportScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              ref.read(transactionProvider.notifier).fetchTransactions();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: () async {
-              await Supabase.instance.client.auth.signOut();
-            },
-          ),
-        ],
-      ),
-      body: transactionState.isLoading && transactions.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: () async {
-                await ref
-                    .read(transactionProvider.notifier)
-                    .fetchTransactions();
-              },
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    if (transactionState.error != null)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.error_outline, color: Colors.red),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                transactionState.error!,
-                                style: const TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // Summary Cards
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Colors.indigo, Colors.indigoAccent],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.indigo.withValues(alpha: 0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Total Balance',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '\$${totalBalance.toStringAsFixed(2)}',
-                            style: GoogleFonts.spaceGrotesk(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _buildSummaryItem(
-                                'Income',
-                                totalIncome,
-                                Icons.arrow_downward,
-                                Colors.greenAccent,
-                              ),
-                              Container(
-                                height: 30,
-                                width: 1,
-                                color: Colors.white24,
-                              ),
-                              _buildSummaryItem(
-                                'Expenses',
-                                totalExpense,
-                                Icons.arrow_upward,
-                                Colors.redAccent,
-                              ),
-                            ],
-                          ),
-                        ],
+                    const Icon(Icons.error_outline, color: Colors.red),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        transactionState.error!,
+                        style: const TextStyle(color: Colors.red),
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Quick Module Navigation Section
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Quick Modules',
-                          style: GoogleFonts.spaceGrotesk(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    GridView.count(
-                      crossAxisCount: 3,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.1,
-                      children: [
-                        _buildModuleCard(
-                          context,
-                          'Vouchers',
-                          Icons.receipt_long,
-                          Colors.blue,
-                          () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const VoucherListScreen(),
-                            ),
-                          ),
-                        ),
-                        _buildModuleCard(
-                          context,
-                          'Reports',
-                          Icons.bar_chart,
-                          Colors.purple,
-                          () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const ReportsScreen(),
-                            ),
-                          ),
-                        ),
-                        _buildModuleCard(
-                          context,
-                          'Aging Report',
-                          Icons.hourglass_bottom,
-                          Colors.orange,
-                          () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const AgingReportScreen(),
-                            ),
-                          ),
-                        ),
-                        _buildModuleCard(
-                          context,
-                          'Cost Centers',
-                          Icons.business_center,
-                          Colors.teal,
-                          () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const CostCenterScreen(),
-                            ),
-                          ),
-                        ),
-                        _buildModuleCard(
-                          context,
-                          'Ledgers',
-                          Icons.account_tree,
-                          Colors.indigo,
-                          () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const LedgerManagementScreen(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Recent Transactions Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Recent Transactions',
-                          style: GoogleFonts.spaceGrotesk(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        Text(
-                          '${transactions.length} items',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Transactions List
-                    transactions.isEmpty
-                        ? Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 40),
-                            child: Center(
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.receipt_long_outlined,
-                                    size: 64,
-                                    color: Colors.grey[400],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'No transactions found',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: transactions.length,
-                            itemBuilder: (context, index) {
-                              final tx = transactions[index];
-                              final isIncome = tx.type == 'income';
-                              return Dismissible(
-                                key: Key(tx.id),
-                                direction: DismissDirection.endToStart,
-                                background: Container(
-                                  alignment: Alignment.centerRight,
-                                  padding: const EdgeInsets.only(right: 20.0),
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: const Icon(
-                                    Icons.delete,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                onDismissed: (direction) {
-                                  ref
-                                      .read(transactionProvider.notifier)
-                                      .deleteTransaction(tx.id);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Deleted "${tx.title}"'),
-                                      action: SnackBarAction(
-                                        label: 'Undo',
-                                        onPressed: () {
-                                          // Re-add if needed or just let it be
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.03,
-                                        ),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ListTile(
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
-                                    ),
-                                    leading: CircleAvatar(
-                                      backgroundColor: isIncome
-                                          ? Colors.green.withValues(alpha: 0.1)
-                                          : Colors.red.withValues(alpha: 0.1),
-                                      child: Icon(
-                                        _getCategoryIcon(tx.category),
-                                        color: isIncome
-                                            ? Colors.green
-                                            : Colors.red,
-                                      ),
-                                    ),
-                                    title: Text(
-                                      tx.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      '${tx.category} • ${_formatDate(tx.createdAt)}',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    trailing: Text(
-                                      '${isIncome ? '+' : '-'}\$${tx.amount.toStringAsFixed(2)}',
-                                      style: GoogleFonts.spaceGrotesk(
-                                        color: isIncome
-                                            ? const Color(0xFF10B981)
-                                            : const Color(0xFFF43F5E),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
                   ],
                 ),
               ),
+
+            // Summary Cards
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Colors.indigo, Colors.indigoAccent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.indigo.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Total Balance',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '\$${totalBalance.toStringAsFixed(2)}',
+                    style: GoogleFonts.spaceGrotesk(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildSummaryItem(
+                        'Income',
+                        totalIncome,
+                        Icons.arrow_downward,
+                        Colors.greenAccent,
+                      ),
+                      Container(height: 30, width: 1, color: Colors.white24),
+                      _buildSummaryItem(
+                        'Expenses',
+                        totalExpense,
+                        Icons.arrow_upward,
+                        Colors.redAccent,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddTransactionModal(context, ref),
-        label: const Text('Add Transaction'),
-        icon: const Icon(Icons.add),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
+            const SizedBox(height: 24),
+
+            // Recent Transactions Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Recent Transactions',
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  '${transactions.length} items',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Transactions List
+            transactions.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.receipt_long_outlined,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No transactions found',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: transactions.length,
+                    itemBuilder: (context, index) {
+                      final tx = transactions[index];
+                      final isIncome = tx.type == 'income';
+                      return Dismissible(
+                        key: Key(tx.id),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20.0),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        onDismissed: (direction) {
+                          ref
+                              .read(transactionProvider.notifier)
+                              .deleteTransaction(tx.id);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Deleted "${tx.title}"')),
+                          );
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            leading: CircleAvatar(
+                              backgroundColor: isIncome
+                                  ? Colors.green.withValues(alpha: 0.1)
+                                  : Colors.red.withValues(alpha: 0.1),
+                              child: Icon(
+                                _getCategoryIcon(tx.category),
+                                color: isIncome ? Colors.green : Colors.red,
+                              ),
+                            ),
+                            title: Text(
+                              tx.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '${tx.category} • ${_formatDate(tx.createdAt)}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
+                            ),
+                            trailing: Text(
+                              '${isIncome ? '+' : '-'}\$${tx.amount.toStringAsFixed(2)}',
+                              style: GoogleFonts.spaceGrotesk(
+                                color: isIncome
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFF43F5E),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ],
+        ),
       ),
     );
   }
@@ -616,59 +617,6 @@ class BudgetHomePage extends ConsumerWidget {
       default:
         return Icons.category;
     }
-  }
-
-  Widget _buildModuleCard(
-    BuildContext context,
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 24),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Colors.black87,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   String _formatDate(DateTime date) {

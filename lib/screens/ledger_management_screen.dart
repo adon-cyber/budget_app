@@ -142,12 +142,28 @@ class _LedgerManagementScreenState extends State<LedgerManagementScreen> {
 
           if (provider.errorMessage != null && provider.accountGroups.isEmpty) {
             return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Error: ${provider.errorMessage}',
-                  style: const TextStyle(color: Colors.red),
-                  textAlign: TextAlign.center,
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Error: ${provider.errorMessage}',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -156,63 +172,76 @@ class _LedgerManagementScreenState extends State<LedgerManagementScreen> {
           // Primary types: asset, liability, income, expense
           final primaryTypes = ['asset', 'liability', 'income', 'expense'];
 
-          return RefreshIndicator(
-            onRefresh: () => provider.fetchChartOfAccounts(),
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: primaryTypes.map((type) {
-                final groupsForType = provider.accountGroups
-                    .where((g) => g.type.toLowerCase() == type)
-                    .toList();
+          return Stack(
+            children: [
+              RefreshIndicator(
+                onRefresh: () => provider.fetchChartOfAccounts(),
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: primaryTypes.map((type) {
+                    final groupsForType = provider.accountGroups
+                        .where((g) => g.type.toLowerCase() == type)
+                        .toList();
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  child: ExpansionTile(
-                    title: Text(
-                      type.toUpperCase(),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                    children: groupsForType.map((group) {
-                      final ledgersForGroup = provider.ledgers
-                          .where((l) => l.groupId == group.id)
-                          .toList();
-
-                      return ExpansionTile(
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: ExpansionTile(
                         title: Text(
-                          group.name,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          type.toUpperCase(),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
                         ),
-                        subtitle: Text('${ledgersForGroup.length} ledgers'),
-                        children: ledgersForGroup.isEmpty
-                            ? [
-                                const Padding(
-                                  padding: EdgeInsets.all(12.0),
-                                  child: Text(
-                                    'No ledgers in this group',
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                ),
-                              ]
-                            : ledgersForGroup.map((ledger) {
-                                return ListTile(
-                                  title: Text(ledger.name),
-                                  trailing: Text(
-                                    'Bal: \$${ledger.currentBalance.toStringAsFixed(2)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
+                        children: groupsForType.map((group) {
+                          final ledgersForGroup = provider.ledgers
+                              .where((l) => l.groupId == group.id)
+                              .toList();
+
+                          return ExpansionTile(
+                            title: Text(
+                              group.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text('${ledgersForGroup.length} ledgers'),
+                            children: ledgersForGroup.isEmpty
+                                ? [
+                                    const Padding(
+                                      padding: EdgeInsets.all(12.0),
+                                      child: Text(
+                                        'No ledgers in this group',
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
                                     ),
-                                  ),
-                                );
-                              }).toList(),
-                      );
-                    }).toList(),
-                  ),
-                );
-              }).toList(),
-            ),
+                                  ]
+                                : ledgersForGroup.map((ledger) {
+                                    return ListTile(
+                                      title: Text(ledger.name),
+                                      trailing: Text(
+                                        'Bal: \$${ledger.currentBalance.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              if (provider.isLoading)
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: LinearProgressIndicator(),
+                ),
+            ],
           );
         },
       ),

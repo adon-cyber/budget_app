@@ -24,7 +24,10 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
   DateTime _date = DateTime.now();
 
   // List of entry rows: each row has ledgerId, costCenterId, isDebit, amount, description, selectedBillId
-  final List<_VoucherRowItem> _rows = [_VoucherRowItem(), _VoucherRowItem()];
+  final List<_VoucherRowItem> _rows = [
+    _VoucherRowItem(isDebit: true),
+    _VoucherRowItem(isDebit: false),
+  ];
 
   @override
   void initState() {
@@ -674,10 +677,12 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
 }
 
 class _VoucherRowItem {
+  _VoucherRowItem({this.isDebit = true});
+
   String? ledgerId;
   String? costCenterId;
   String? selectedBillId;
-  bool isDebit = true;
+  bool isDebit;
   final TextEditingController amountController = TextEditingController();
   final TextEditingController descController = TextEditingController();
 }

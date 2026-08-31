@@ -32,8 +32,6 @@ class _ReportsScreenState extends State<ReportsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final reportProvider = Provider.of<ReportProvider>(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Financial Reports'),
@@ -48,31 +46,71 @@ class _ReportsScreenState extends State<ReportsScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => reportProvider.fetchReportBalances(),
+            onPressed: () => Provider.of<ReportProvider>(
+              context,
+              listen: false,
+            ).fetchReportBalances(),
           ),
         ],
       ),
-      body: reportProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : reportProvider.errorMessage != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Error: ${reportProvider.errorMessage}',
-                  style: const TextStyle(color: Colors.red),
-                  textAlign: TextAlign.center,
+      body: Consumer<ReportProvider>(
+        builder: (context, reportProvider, child) {
+          if (reportProvider.isLoading &&
+              reportProvider.reportBalances.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (reportProvider.errorMessage != null &&
+              reportProvider.reportBalances.isEmpty) {
+            return Center(
+              child: Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Error: ${reportProvider.errorMessage}',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildTrialBalanceTab(reportProvider.reportBalances),
-                _buildProfitLossTab(reportProvider),
-                _buildBalanceSheetTab(reportProvider),
-              ],
-            ),
+            );
+          }
+
+          return Stack(
+            children: [
+              TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildTrialBalanceTab(reportProvider.reportBalances),
+                  _buildProfitLossTab(reportProvider),
+                  _buildBalanceSheetTab(reportProvider),
+                ],
+              ),
+              if (reportProvider.isLoading)
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: LinearProgressIndicator(),
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 
