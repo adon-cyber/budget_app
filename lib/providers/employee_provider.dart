@@ -23,7 +23,7 @@ class EmployeeProvider with ChangeNotifier {
       final response = await _supabase
           .from('employees')
           .select()
-          .order('name', ascending: true);
+          .order('first_name', ascending: true);
       _employees = (response as List)
           .map((json) => Employee.fromJson(json))
           .toList();
@@ -41,32 +41,58 @@ class EmployeeProvider with ChangeNotifier {
     String? phone,
     String? department,
     String? designation,
-    required double baseSalary,
-    required double allowances,
-    required double deductions,
+    required dynamic baseSalary,
+    required dynamic allowances,
+    required dynamic deductions,
     String? bankAccount,
     String? ledgerId,
+    String? costCenterId,
+    String? employeeCode,
   }) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
+      final parts = name.trim().split(' ');
+      final firstName = parts.isNotEmpty ? parts.first : name.trim();
+      final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+
+      final parsedBaseSalary = baseSalary is num
+          ? baseSalary.toDouble()
+          : double.tryParse(baseSalary?.toString() ?? '') ?? 0.0;
+      final parsedAllowances = allowances is num
+          ? allowances.toDouble()
+          : double.tryParse(allowances?.toString() ?? '') ?? 0.0;
+      final parsedDeductions = deductions is num
+          ? deductions.toDouble()
+          : double.tryParse(deductions?.toString() ?? '') ?? 0.0;
+
+      final employee = Employee(
+        id: '',
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        phone: phone,
+        department: department,
+        designation: designation,
+        baseSalary: parsedBaseSalary,
+        allowances: parsedAllowances,
+        deductions: parsedDeductions,
+        bankAccount: bankAccount,
+        ledgerId: ledgerId,
+        costCenterId: costCenterId?.isNotEmpty == true ? costCenterId : null,
+        employeeCode:
+            employeeCode ??
+            'EMP-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+        isActive: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
       final response = await _supabase
           .from('employees')
-          .insert({
-            'name': name,
-            'email': email,
-            'phone': phone,
-            'department': department,
-            'designation': designation,
-            'base_salary': baseSalary,
-            'allowances': allowances,
-            'deductions': deductions,
-            'bank_account': bankAccount,
-            'ledger_id': ledgerId,
-            'is_active': true,
-          })
+          .insert(employee.toJson())
           .select()
           .single();
 
@@ -90,11 +116,13 @@ class EmployeeProvider with ChangeNotifier {
     String? phone,
     String? department,
     String? designation,
-    required double baseSalary,
-    required double allowances,
-    required double deductions,
+    required dynamic baseSalary,
+    required dynamic allowances,
+    required dynamic deductions,
     String? bankAccount,
     String? ledgerId,
+    String? costCenterId,
+    String? employeeCode,
     required bool isActive,
   }) async {
     _isLoading = true;
@@ -102,22 +130,46 @@ class EmployeeProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      final parts = name.trim().split(' ');
+      final firstName = parts.isNotEmpty ? parts.first : name.trim();
+      final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+
+      final parsedBaseSalary = baseSalary is num
+          ? baseSalary.toDouble()
+          : double.tryParse(baseSalary?.toString() ?? '') ?? 0.0;
+      final parsedAllowances = allowances is num
+          ? allowances.toDouble()
+          : double.tryParse(allowances?.toString() ?? '') ?? 0.0;
+      final parsedDeductions = deductions is num
+          ? deductions.toDouble()
+          : double.tryParse(deductions?.toString() ?? '') ?? 0.0;
+
+      final employee = Employee(
+        id: id,
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        phone: phone,
+        department: department,
+        designation: designation,
+        baseSalary: parsedBaseSalary,
+        allowances: parsedAllowances,
+        deductions: parsedDeductions,
+        bankAccount: bankAccount,
+        ledgerId: ledgerId,
+        costCenterId: costCenterId?.isNotEmpty == true ? costCenterId : null,
+        employeeCode: employeeCode,
+        isActive: isActive,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final data = employee.toJson();
+      data['updated_at'] = DateTime.now().toIso8601String();
+
       final response = await _supabase
           .from('employees')
-          .update({
-            'name': name,
-            'email': email,
-            'phone': phone,
-            'department': department,
-            'designation': designation,
-            'base_salary': baseSalary,
-            'allowances': allowances,
-            'deductions': deductions,
-            'bank_account': bankAccount,
-            'ledger_id': ledgerId,
-            'is_active': isActive,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
+          .update(data)
           .eq('id', id)
           .select()
           .single();

@@ -97,12 +97,13 @@ class VoucherProvider with ChangeNotifier {
         final debit = (item['debit'] as num).toDouble();
         final credit = (item['credit'] as num).toDouble();
         final description = item['description'] as String?;
-        final costCenterId =
-            (item['cost_center_id'] == null ||
-                (item['cost_center_id'] as String).isEmpty ||
-                item['cost_center_id'] == 'None')
+        final costCenterId = item['cost_center_id'] as String?;
+        final cleanedCostCenterId =
+            (costCenterId == null ||
+                costCenterId.isEmpty ||
+                costCenterId == 'None')
             ? null
-            : item['cost_center_id'] as String?;
+            : costCenterId;
         final billId =
             (item['bill_id'] == null ||
                 (item['bill_id'] as String).isEmpty ||
@@ -116,7 +117,7 @@ class VoucherProvider with ChangeNotifier {
           'debit': debit,
           'credit': credit,
           'description': description,
-          'cost_center_id': costCenterId,
+          'cost_center_id': cleanedCostCenterId,
           if (billId != null) 'bill_id': billId,
         });
 
