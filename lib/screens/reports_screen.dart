@@ -39,7 +39,7 @@ class _ReportsScreenState extends State<ReportsScreen>
           controller: _tabController,
           tabs: const [
             Tab(text: 'Trial Balance'),
-            Tab(text: 'Profit & Loss'),
+            Tab(text: 'Income Statement'),
             Tab(text: 'Balance Sheet'),
           ],
         ),
@@ -96,7 +96,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                 controller: _tabController,
                 children: [
                   _buildTrialBalanceTab(reportProvider.reportBalances),
-                  _buildProfitLossTab(reportProvider),
+                  _buildIncomeStatementTab(reportProvider),
                   _buildBalanceSheetTab(reportProvider),
                 ],
               ),
@@ -148,9 +148,6 @@ class _ReportsScreenState extends State<ReportsScreen>
         ],
       );
     }).toList();
-
-    // To ensure bottom totals match for trial balance in accounting demo if there's a diff or if totals should match
-    // Standard trial balance debits and credits should naturally equal.
 
     return Column(
       children: [
@@ -220,168 +217,151 @@ class _ReportsScreenState extends State<ReportsScreen>
 
   bool isDebitVal(double val) => val > 0;
 
-  Widget _buildProfitLossTab(ReportProvider provider) {
-    final expenses = provider.reportBalances
-        .where((item) => item.nature.toLowerCase() == 'expense')
-        .toList();
+  Widget _buildIncomeStatementTab(ReportProvider provider) {
     final incomes = provider.reportBalances
         .where((item) => item.nature.toLowerCase() == 'income')
         .toList();
+    final expenses = provider.reportBalances
+        .where((item) => item.nature.toLowerCase() == 'expense')
+        .toList();
 
-    final netProfit = provider.netProfit;
-    final isNetProfit = netProfit >= 0;
+    final netIncome = provider.totalIncome - provider.totalExpenses;
+    final isProfitable = netIncome >= 0;
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Expenses Card (Left)
-                Expanded(
-                  child: Card(
-                    elevation: 3,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Expenses',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red,
-                            ),
-                          ),
-                          const Divider(),
-                          Expanded(
-                            child: ListView.builder(
-                              itemCount: expenses.length,
-                              itemBuilder: (context, index) {
-                                final exp = expenses[index];
-                                return ListTile(
-                                  dense: true,
-                                  title: Text(exp.ledgerName),
-                                  trailing: Text(
-                                    '\$${exp.currentBalance.toStringAsFixed(2)}',
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const Divider(),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Total Expenses:',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                '\$${provider.totalExpenses.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.red,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Incomes Card (Right)
-                Expanded(
-                  child: Card(
-                    elevation: 3,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Income',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green,
-                            ),
-                          ),
-                          const Divider(),
-                          Expanded(
-                            child: ListView.builder(
-                              itemCount: incomes.length,
-                              itemBuilder: (context, index) {
-                                final inc = incomes[index];
-                                return ListTile(
-                                  dense: true,
-                                  title: Text(inc.ledgerName),
-                                  trailing: Text(
-                                    '\$${inc.currentBalance.toStringAsFixed(2)}',
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const Divider(),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Total Income:',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                '\$${provider.totalIncome.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+          // Section 1: Revenue
+          const Text(
+            'Revenue',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.green,
             ),
           ),
-          const SizedBox(height: 12),
+          const Divider(),
+          if (incomes.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Text(
+                'No revenue ledgers found.',
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          else
+            ...incomes.map(
+              (inc) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(inc.ledgerName),
+                    Text('\$${inc.currentBalance.toStringAsFixed(2)}'),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Revenue',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '\$${provider.totalIncome.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Section 2: Expenses
+          const Text(
+            'Expenses',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.red,
+            ),
+          ),
+          const Divider(),
+          if (expenses.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Text(
+                'No expense ledgers found.',
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          else
+            ...expenses.map(
+              (exp) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(exp.ledgerName),
+                    Text('\$${exp.currentBalance.toStringAsFixed(2)}'),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Expenses',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '\$${provider.totalExpenses.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Section 3: Net Income
           Container(
             padding: const EdgeInsets.all(16.0),
             decoration: BoxDecoration(
-              color: isNetProfit ? Colors.green.shade50 : Colors.red.shade50,
+              color: isProfitable ? Colors.green.shade50 : Colors.red.shade50,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isNetProfit ? Colors.green : Colors.red,
+                color: isProfitable ? Colors.green : Colors.red,
               ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  isNetProfit ? 'Net Profit: ' : 'Net Loss: ',
+                  'Net Income',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: isNetProfit
+                    color: isProfitable
                         ? Colors.green.shade800
                         : Colors.red.shade800,
                   ),
                 ),
                 Text(
-                  '\$${netProfit.abs().toStringAsFixed(2)}',
+                  '\$${netIncome.toStringAsFixed(2)}',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: isNetProfit
+                    color: isProfitable
                         ? Colors.green.shade800
                         : Colors.red.shade800,
                   ),
