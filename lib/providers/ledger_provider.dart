@@ -17,21 +17,39 @@ class LedgerProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  Future<void> fetchLedgers() async {
+    try {
+      final ledgersResponse = await _supabase.from('ledgers').select();
+      _ledgers = (ledgersResponse as List)
+          .map((json) => Ledger.fromJson(json))
+          .toList();
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchAccountGroups() async {
+    try {
+      final groupsResponse = await _supabase.from('account_groups').select();
+      _accountGroups = (groupsResponse as List)
+          .map((json) => AccountGroup.fromJson(json))
+          .toList();
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+    }
+  }
+
   Future<void> fetchChartOfAccounts() async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final groupsResponse = await _supabase.from('account_groups').select();
-      _accountGroups = (groupsResponse as List)
-          .map((json) => AccountGroup.fromJson(json))
-          .toList();
-
-      final ledgersResponse = await _supabase.from('ledgers').select();
-      _ledgers = (ledgersResponse as List)
-          .map((json) => Ledger.fromJson(json))
-          .toList();
+      await Future.wait([fetchAccountGroups(), fetchLedgers()]);
     } catch (e) {
       _errorMessage = e.toString();
     } finally {

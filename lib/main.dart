@@ -16,12 +16,17 @@ import 'providers/voucher_provider.dart';
 import 'providers/cost_center_provider.dart';
 import 'providers/bill_provider.dart';
 import 'providers/report_provider.dart';
+import 'providers/employee_provider.dart';
+import 'providers/payroll_provider.dart';
+
 import 'screens/auth_screen.dart';
 import 'screens/ledger_management_screen.dart';
 import 'screens/voucher_list_screen.dart';
 import 'screens/cost_center_screen.dart';
 import 'screens/reports_screen.dart';
 import 'screens/aging_report_screen.dart';
+import 'screens/employee_management_screen.dart';
+import 'screens/payroll_processing_screen.dart';
 
 import 'package:provider/provider.dart' as legacy_provider;
 
@@ -52,6 +57,17 @@ Future<void> main() async {
         ),
         legacy_provider.ChangeNotifierProvider(create: (_) => BillProvider()),
         legacy_provider.ChangeNotifierProvider(create: (_) => ReportProvider()),
+        legacy_provider.ChangeNotifierProvider(
+          create: (_) => EmployeeProvider(),
+        ),
+        legacy_provider.ChangeNotifierProvider(
+          create: (context) => PayrollProvider(
+            legacy_provider.Provider.of<VoucherProvider>(
+              context,
+              listen: false,
+            ),
+          ),
+        ),
       ],
       child: const ProviderScope(child: MyApp()),
     ),
@@ -107,6 +123,8 @@ class _BudgetHomePageState extends ConsumerState<BudgetHomePage> {
     CostCenterScreen(),
     AgingReportScreen(),
     ReportsScreen(),
+    EmployeeManagementScreen(),
+    PayrollProcessingScreen(),
   ];
 
   void _showAddTransactionModal(BuildContext context, WidgetRef ref) {
@@ -236,6 +254,35 @@ class _BudgetHomePageState extends ConsumerState<BudgetHomePage> {
             ),
             const Divider(),
             ListTile(
+              leading: const Icon(Icons.people),
+              title: const Text('HR & Payroll'),
+              subtitle: const Text('Employees & Payroll'),
+              selected: _currentIndex == 6 || _currentIndex == 7,
+              onTap: () {
+                setState(() => _currentIndex = 6);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.badge),
+              title: const Text('Employees'),
+              selected: _currentIndex == 6,
+              onTap: () {
+                setState(() => _currentIndex = 6);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.payments),
+              title: const Text('Payroll Processing'),
+              selected: _currentIndex == 7,
+              onTap: () {
+                setState(() => _currentIndex = 7);
+                Navigator.pop(context);
+              },
+            ),
+            const Divider(),
+            ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
               title: const Text('Logout', style: TextStyle(color: Colors.red)),
               onTap: () async {
@@ -297,6 +344,10 @@ class _BudgetHomePageState extends ConsumerState<BudgetHomePage> {
         return 'Aging Analysis';
       case 5:
         return 'Financial Reports';
+      case 6:
+        return 'Employee Management';
+      case 7:
+        return 'Payroll Processing';
       default:
         return 'Budget App';
     }

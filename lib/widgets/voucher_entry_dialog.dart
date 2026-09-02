@@ -134,7 +134,18 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
         'description': row.descController.text.trim().isEmpty
             ? null
             : row.descController.text.trim(),
-        'cost_center_id': row.costCenterId,
+        'cost_center_id':
+            (row.costCenterId == null ||
+                row.costCenterId!.isEmpty ||
+                row.costCenterId == 'None')
+            ? null
+            : row.costCenterId,
+        'bill_id':
+            (row.selectedBillId == null ||
+                row.selectedBillId!.isEmpty ||
+                row.selectedBillId == 'No Bill')
+            ? null
+            : row.selectedBillId,
       });
     }
 
@@ -383,213 +394,226 @@ class _VoucherEntryDialogState extends State<VoucherEntryDialog> {
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        children: [
-                          // Ledger Dropdown
-                          Expanded(
-                            flex: 3,
-                            child: DropdownButtonFormField<String>(
-                              initialValue: row.ledgerId,
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
-                              ),
-                              hint: const Text('Select Ledger'),
-                              items: ledgers.map((Ledger ledger) {
-                                return DropdownMenuItem<String>(
-                                  value: ledger.id,
-                                  child: Text(
-                                    ledger.name,
-                                    overflow: TextOverflow.ellipsis,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minWidth: MediaQuery.of(context).size.width * 0.85,
+                          ),
+                          child: Row(
+                            children: [
+                              // Ledger Dropdown
+                              SizedBox(
+                                width: 160,
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: row.ledgerId,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
                                   ),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                setState(() {
-                                  row.ledgerId = val;
-                                  row.selectedBillId =
-                                      null; // reset bill if ledger changes
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Cost Center Dropdown
-                          Expanded(
-                            flex: 2,
-                            child: DropdownButtonFormField<String?>(
-                              initialValue: row.costCenterId,
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
+                                  hint: const Text('Select Ledger'),
+                                  items: ledgers.map((Ledger ledger) {
+                                    return DropdownMenuItem<String>(
+                                      value: ledger.id,
+                                      child: Text(
+                                        ledger.name,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (val) {
+                                    setState(() {
+                                      row.ledgerId = val;
+                                      row.selectedBillId =
+                                          null; // reset bill if ledger changes
+                                    });
+                                  },
                                 ),
                               ),
-                              hint: const Text('None'),
-                              items: [
-                                const DropdownMenuItem<String?>(
-                                  value: null,
-                                  child: Text('None'),
+                              const SizedBox(width: 8),
+                              // Cost Center Dropdown
+                              SizedBox(
+                                width: 130,
+                                child: DropdownButtonFormField<String?>(
+                                  initialValue: row.costCenterId,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  hint: const Text('None'),
+                                  items: [
+                                    const DropdownMenuItem<String?>(
+                                      value: null,
+                                      child: Text('None'),
+                                    ),
+                                    ...costCenters.map((CostCenter cc) {
+                                      return DropdownMenuItem<String?>(
+                                        value: cc.id,
+                                        child: Text(
+                                          cc.name,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      );
+                                    }),
+                                  ],
+                                  onChanged: (val) =>
+                                      setState(() => row.costCenterId = val),
                                 ),
-                                ...costCenters.map((CostCenter cc) {
-                                  return DropdownMenuItem<String?>(
-                                    value: cc.id,
-                                    child: Text(
-                                      cc.name,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  );
-                                }),
-                              ],
-                              onChanged: (val) =>
-                                  setState(() => row.costCenterId = val),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Outstanding Bill Dropdown (Only for Payment/Receipt when ledger is selected)
-                          Expanded(
-                            flex: 2,
-                            child:
-                                (_voucherType == 'Payment' ||
-                                    _voucherType == 'Receipt')
-                                ? DropdownButtonFormField<String?>(
-                                    initialValue: row.selectedBillId,
-                                    isExpanded: true,
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                      contentPadding: EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 8,
-                                      ),
-                                    ),
-                                    hint: const Text('No Bill'),
-                                    items: [
-                                      const DropdownMenuItem<String?>(
-                                        value: null,
-                                        child: Text('No Bill'),
-                                      ),
-                                      ...ledgerBills.map((Bill bill) {
-                                        return DropdownMenuItem<String?>(
-                                          value: bill.id,
-                                          child: Text(
-                                            '${bill.referenceNo} (\$${bill.pendingAmount.toStringAsFixed(2)})',
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                            ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Outstanding Bill Dropdown (Only for Payment/Receipt when ledger is selected)
+                              SizedBox(
+                                width: 140,
+                                child:
+                                    (_voucherType == 'Payment' ||
+                                        _voucherType == 'Receipt')
+                                    ? DropdownButtonFormField<String?>(
+                                        initialValue: row.selectedBillId,
+                                        isExpanded: true,
+                                        decoration: const InputDecoration(
+                                          border: OutlineInputBorder(),
+                                          contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 8,
                                           ),
-                                        );
-                                      }),
-                                    ],
-                                    onChanged: (val) {
-                                      setState(() {
-                                        row.selectedBillId = val;
-                                        if (val != null) {
-                                          final bill = ledgerBills.firstWhere(
-                                            (b) => b.id == val,
-                                          );
-                                          row.amountController.text = bill
-                                              .pendingAmount
-                                              .toStringAsFixed(2);
-                                        }
-                                      });
-                                    },
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                          const SizedBox(width: 8),
-                          // Dr / Cr Selector
-                          Expanded(
-                            flex: 2,
-                            child: DropdownButtonFormField<bool>(
-                              initialValue: row.isDebit,
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
+                                        ),
+                                        hint: const Text('No Bill'),
+                                        items: [
+                                          const DropdownMenuItem<String?>(
+                                            value: null,
+                                            child: Text('No Bill'),
+                                          ),
+                                          ...ledgerBills.map((Bill bill) {
+                                            return DropdownMenuItem<String?>(
+                                              value: bill.id,
+                                              child: Text(
+                                                '${bill.referenceNo} (\$${bill.pendingAmount.toStringAsFixed(2)})',
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            );
+                                          }),
+                                        ],
+                                        onChanged: (val) {
+                                          setState(() {
+                                            row.selectedBillId = val;
+                                            if (val != null) {
+                                              final bill = ledgerBills
+                                                  .firstWhere(
+                                                    (b) => b.id == val,
+                                                  );
+                                              row.amountController.text = bill
+                                                  .pendingAmount
+                                                  .toStringAsFixed(2);
+                                            }
+                                          });
+                                        },
+                                      )
+                                    : const SizedBox.shrink(),
                               ),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: true,
-                                  child: Text(
-                                    'Debit (Dr)',
-                                    style: TextStyle(
-                                      color: Colors.blue,
-                                      fontWeight: FontWeight.bold,
+                              const SizedBox(width: 8),
+                              // Dr / Cr Selector
+                              SizedBox(
+                                width: 110,
+                                child: DropdownButtonFormField<bool>(
+                                  initialValue: row.isDebit,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
                                     ),
                                   ),
-                                ),
-                                DropdownMenuItem(
-                                  value: false,
-                                  child: Text(
-                                    'Credit (Cr)',
-                                    style: TextStyle(
-                                      color: Colors.green,
-                                      fontWeight: FontWeight.bold,
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: true,
+                                      child: Text(
+                                        'Debit (Dr)',
+                                        style: TextStyle(
+                                          color: Colors.blue,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
+                                    DropdownMenuItem(
+                                      value: false,
+                                      child: Text(
+                                        'Credit (Cr)',
+                                        style: TextStyle(
+                                          color: Colors.green,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  onChanged: (val) =>
+                                      setState(() => row.isDebit = val ?? true),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Amount
+                              SizedBox(
+                                width: 100,
+                                child: TextFormField(
+                                  controller: row.amountController,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                    hintText: '0.00',
+                                  ),
+                                  onChanged: (_) => setState(() {}),
+                                  validator: (val) =>
+                                      val == null ||
+                                          double.tryParse(val) == null
+                                      ? 'Invalid'
+                                      : null,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Description
+                              SizedBox(
+                                width: 130,
+                                child: TextFormField(
+                                  controller: row.descController,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                    hintText: 'Optional memo',
                                   ),
                                 ),
-                              ],
-                              onChanged: (val) =>
-                                  setState(() => row.isDebit = val ?? true),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Amount
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: row.amountController,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
-                                ),
-                                hintText: '0.00',
                               ),
-                              onChanged: (_) => setState(() {}),
-                              validator: (val) =>
-                                  val == null || double.tryParse(val) == null
-                                  ? 'Invalid'
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Description
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: row.descController,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
                                 ),
-                                hintText: 'Optional memo',
+                                onPressed: () => _removeRow(index),
                               ),
-                            ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _removeRow(index),
-                          ),
-                        ],
+                        ),
                       ),
                     );
                   },

@@ -97,7 +97,18 @@ class VoucherProvider with ChangeNotifier {
         final debit = (item['debit'] as num).toDouble();
         final credit = (item['credit'] as num).toDouble();
         final description = item['description'] as String?;
-        final costCenterId = item['cost_center_id'] as String?;
+        final costCenterId =
+            (item['cost_center_id'] == null ||
+                (item['cost_center_id'] as String).isEmpty ||
+                item['cost_center_id'] == 'None')
+            ? null
+            : item['cost_center_id'] as String?;
+        final billId =
+            (item['bill_id'] == null ||
+                (item['bill_id'] as String).isEmpty ||
+                item['bill_id'] == 'No Bill')
+            ? null
+            : item['bill_id'] as String?;
 
         await _supabase.from('voucher_items').insert({
           'voucher_id': voucherId,
@@ -106,6 +117,7 @@ class VoucherProvider with ChangeNotifier {
           'credit': credit,
           'description': description,
           'cost_center_id': costCenterId,
+          if (billId != null) 'bill_id': billId,
         });
 
         // Fetch current ledger balance and account group type to properly update current_balance

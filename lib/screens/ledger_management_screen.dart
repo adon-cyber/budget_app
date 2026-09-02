@@ -15,10 +15,9 @@ class _LedgerManagementScreenState extends State<LedgerManagementScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<LedgerProvider>(
-        context,
-        listen: false,
-      ).fetchChartOfAccounts();
+      final provider = Provider.of<LedgerProvider>(context, listen: false);
+      provider.fetchLedgers();
+      provider.fetchAccountGroups();
     });
   }
 
@@ -175,25 +174,54 @@ class _LedgerManagementScreenState extends State<LedgerManagementScreen> {
           return Stack(
             children: [
               RefreshIndicator(
-                onRefresh: () => provider.fetchChartOfAccounts(),
+                onRefresh: () async {
+                  await provider.fetchAccountGroups();
+                  await provider.fetchLedgers();
+                },
                 child: ListView(
                   padding: const EdgeInsets.all(16),
-                  children: primaryTypes.map((type) {
-                    final groupsForType = provider.accountGroups
-                        .where((g) => g.type.toLowerCase() == type)
+                  children: primaryTypes.map((nature) {
+                    final groupsForNature = provider.accountGroups
+                        .where(
+                          (g) => g.type.toLowerCase() == nature.toLowerCase(),
+                        )
                         .toList();
+
+                    if (groupsForNature.isEmpty) {
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: ExpansionTile(
+                          title: Text(
+                            nature.toUpperCase(),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          children: const [
+                            Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Text(
+                                'No ledgers created yet',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
                       child: ExpansionTile(
                         title: Text(
-                          type.toUpperCase(),
+                          nature.toUpperCase(),
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
                           ),
                         ),
-                        children: groupsForType.map((group) {
+                        children: groupsForNature.map((group) {
                           final ledgersForGroup = provider.ledgers
                               .where((l) => l.groupId == group.id)
                               .toList();
@@ -211,7 +239,7 @@ class _LedgerManagementScreenState extends State<LedgerManagementScreen> {
                                     const Padding(
                                       padding: EdgeInsets.all(12.0),
                                       child: Text(
-                                        'No ledgers in this group',
+                                        'No ledgers created yet',
                                         style: TextStyle(color: Colors.grey),
                                       ),
                                     ),
